@@ -1,0 +1,6 @@
+pandas==2.2.2
+faker==24.0.0
+pyyaml==6.0.1
+python-dotenv==1.0.1
+cryptography==42.0.5
+tqdm==4.66.2

@@ -1,0 +1,103 @@
+tables:
+  patients:
+    file: ../data/raw/patient_202603211747.csv
+    drop:
+      - in_start_phase
+      - start_phase_completed
+      - gender
+      - created_date
+      - deleted
+      - operator
+      - pur
+      - previous_pur
+      - user_id
+      - name
+      - surname
+    rename:
+      id: patient_id
+      birth_date: age_range
+      weight: weight_range
+      height: height_range
+    columns:
+      patient_id:     consistent_id     
+      name:        name_first
+      surname:       name_last
+      age_range:   age_range         
+      weight_range:        weight_range      
+      height_range:        height_range
+
+  measurements:
+    file: ../data/raw/measurement_202603211747.csv
+    drop:
+      - leukocytes
+      - nitrite
+      - protein
+      - blood
+      - glucose
+      - ascorbic_acid
+      - bilirubin
+      - ketone
+      - urobilinogen
+      - scheduled_next_measurement
+      - ph
+      - specific_gravity
+      - cup_serial_number
+      - measurement_type
+      - device_battery_level
+      - device_mac_address
+      - invalid
+      - invalid_reason
+      - cup_id
+    rename:
+      id: measurement_id
+    columns:
+      measurement_id: consistent_id
+      patient_id: consistent_id
+      urine_volume: urine_volume
+      flow_time: flow_time
+      max_flow: max_flow
+      rise_time: rise_time
+      micturition_time: micturition_time
+      created_date: created_date
+  
+  urine_flow:
+    file: ../data/raw/urine_flow_202603211747.csv
+    rename:
+      id: urine_flow_id
+    columns:
+      urine_flow_id: consistent_id
+      measurement_id: consistent_id
+  
+  biomarkers:
+    file: ../data/raw/measurement_202603211747.csv
+    drop:
+      - urine_volume
+      - flow_time
+      - max_flow
+      - rise_time
+      - micturition_time
+      - created_date
+      - scheduled_next_measurement
+      - specific_gravity
+      - cup_serial_number
+      - measurement_type
+      - device_battery_level
+      - device_mac_address
+      - invalid
+      - invalid_reason
+      - cup_id
+    rename:
+      id: measurement_id
+    columns:
+      measurement_id: consistent_id
+      patient_id: consistent_id
+      leukocytes: biomarker
+      nitrite: biomarker
+      protein: biomarker
+      blood: biomarker
+      glucose: biomarker
+      ascorbic_acid: biomarker
+      bilirubin: biomarker
+      ketone: biomarker
+      urobilinogen: biomarker
+      

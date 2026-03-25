@@ -1,1 +1,6 @@
-data
+*/data
+mappings/
+.env
+db/
+*.enc
+pseudo_env
