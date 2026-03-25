@@ -3,4 +3,4 @@ mappings/
 .env
 db/
 *.enc
-pseudo_env
+venv
