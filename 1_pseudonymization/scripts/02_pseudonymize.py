@@ -96,7 +96,7 @@ for table_name, table_cfg in config["tables"].items():
             df[col] = df[col].apply(lambda v: pseudonymize(v, method, col))
 
     df.to_sql(f"{table_name}_pseudo", conn, if_exists="replace", index=False)
-    df.to_csv(f"../data/output/{table_name}_pseudo.csv", index=False)
+    df.to_csv(f"../data/out/{table_name}_pseudo.csv", index=False)
 
 save_mapping(id_map)
 conn.close()

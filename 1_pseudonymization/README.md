@@ -9,13 +9,12 @@ This module takes and formats the original data and pseudonymizes sensitive info
 
 ### How to run
 
-1. Create a virtual environment using `python -m venv venv`.
-2. Activate the environment using `source venv/bin/activate`.
-3. Install the requirements using `pip install -r requirements.txt`.
-4. Create `/mappings/id_mapping.enc` in this folder.
-5. Create a `.env` file in this folder with the content `MAPPING_KEY=`.
-6. Run the following command to create a mapping key:
+1. Create `/db/pseudonymized.db` in this folder.
+2. Create `/mappings/id_mapping.enc` in this folder.
+3. Create a `.env` file in this folder with the content `MAPPING_KEY=`.
+4. Run the following command to create a mapping key:
 ```python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"```
-7. Set the value of `MAPPING_KEY` in `.env` to the created key. 
-8. Run the scripts in numerical order: `python 01_import.py`, ...  
+5. Set the value of `MAPPING_KEY` in `.env` to the created key. 
+6. Run the scripts in numerical order: `python 01_import.py`, ...  
 
+The pseudonymized information is stored in `data/out/`, the database  
