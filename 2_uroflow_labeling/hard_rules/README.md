@@ -1,4 +1,4 @@
-## Labeling
+## Labeling - Hard Rules
 
 This module takes a SQLite database containing the measurements and labels them in the categories "Critical", "Warning" and "Acceptable" according to specific rules defined in `labeling/rules.py`.
 
@@ -10,7 +10,7 @@ This module takes a SQLite database containing the measurements and labels them 
 ### How to run
 
 1. Make sure the database is formatted correctly and all steps from the base README.md are completed.
-2. Run `main.py`.
+2. Run the individual cells in the Jupyter Notebook `uro_active_learning.ipynb`.
 
 The labeled data is stored in `data/out`.
 

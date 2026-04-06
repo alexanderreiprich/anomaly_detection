@@ -4,3 +4,7 @@ pyyaml==6.0.1
 python-dotenv==1.0.1
 cryptography==42.0.5
 tqdm==4.66.2
+scikit-learn==1.8.0
+matplotlib==3.10.8
+seaborn==0.13.2
+ipywidgets==8.1.8
