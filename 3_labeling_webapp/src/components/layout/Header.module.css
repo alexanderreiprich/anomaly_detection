@@ -1,0 +1,80 @@
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+.badgeSeed {
+  background: #eef1ff;
+  color: var(--primary);
+}
+.badgeReview {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.stats span {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  font-weight: 400 !important;
+  color: var(--muted) !important;
+}
+
+.logoutBtn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+.logoutBtn:hover {
+  background: #e8eaf0;
+}
+
+.progressWrap {
+  background: var(--border);
+  height: 4px;
+}
+.progressBar {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
