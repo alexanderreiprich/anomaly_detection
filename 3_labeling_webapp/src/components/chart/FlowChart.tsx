@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend,
   Filler,
+  type TooltipItem,
 } from 'chart.js';
 import { REFERENCE_CURVE, LABEL_COLORS } from '../../config/constants';
 import type { Label, UrinFlowPoint } from '../../types/measurement';
@@ -64,8 +65,8 @@ export function FlowChart({ curve, label }: Props) {
       },
       tooltip: {
         callbacks: {
-          label: (ctx: { parsed: { y: number } }) => `${ctx.parsed.y} ml/s`,
-          title: (ctx: { parsed: { x: number } }[]) => `${ctx[0].parsed.x}s`,
+          label: (ctx: TooltipItem<'line'>) => `${ctx.parsed.y ?? 0} ml/s`,
+          title: (ctx: TooltipItem<'line'>[]) => `${ctx[0].parsed.x ?? 0}s`,
         },
       },
     },
