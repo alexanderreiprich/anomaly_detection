@@ -14,17 +14,17 @@ const FLOW_ITEMS = [
   { key: 'rise_time', name: 'Anstiegszeit', unit: 's' },
 ] as const;
 
-const URINE_ITEMS = [
-  { key: 'blood', name: 'Blut' },
-  { key: 'nitrite', name: 'Nitrit' },
-  { key: 'protein', name: 'Protein' },
-  { key: 'leukocytes', name: 'Leukozyten' },
-  { key: 'glucose', name: 'Glukose' },
-  { key: 'ascorbic_acid', name: 'Ascorbinsäure' },
-  { key: 'bilirubin', name: 'Bilirubin' },
-  { key: 'ketone', name: 'Keton' },
-  { key: 'urobilinogen', name: 'Urobilinogen' },
-] as const;
+// const URINE_ITEMS = [
+//   { key: 'blood', name: 'Blut' },
+//   { key: 'nitrite', name: 'Nitrit' },
+//   { key: 'protein', name: 'Protein' },
+//   { key: 'leukocytes', name: 'Leukozyten' },
+//   { key: 'glucose', name: 'Glukose' },
+//   { key: 'ascorbic_acid', name: 'Ascorbinsäure' },
+//   { key: 'bilirubin', name: 'Bilirubin' },
+//   { key: 'ketone', name: 'Keton' },
+//   { key: 'urobilinogen', name: 'Urobilinogen' },
+// ] as const;
 
 export function Biomarkers({ measurement: m }: Props) {
 
