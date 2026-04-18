@@ -7,6 +7,18 @@ interface Props {
   mode: 'seed' | 'review';
 }
 
+function formatDateTime(raw: string): string {
+  const d = new Date(raw.replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function PatientInfo({ measurement: m, mode }: Props) {
   const patient = m.patients;
 
@@ -28,7 +40,7 @@ export function PatientInfo({ measurement: m, mode }: Props) {
       <div className={styles.info}>
         <Row label="ID" value={m.measurement_id} />
         <Row label="Patient" value={m.patient_id} />
-        <Row label="Datum" value={m.created_date} />
+        <Row label="Datum" value={formatDateTime(m.created_date)} />
         <Row label="Alter" value={`${patient.age_range} Jahre`} />
         <Row label="Gewicht" value={`${patient.weight_range} kg`} />
         <Row label="Größe" value={`${patient.height_range} cm`} />
