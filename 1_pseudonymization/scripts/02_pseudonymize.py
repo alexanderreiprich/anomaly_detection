@@ -11,7 +11,7 @@ from tqdm import tqdm
 load_dotenv()
 
 # Mapping definitions
-MAPPING_FILE = "../mappings/id_mapping.enc"
+MAPPING_FILE = "./mappings/id_mapping.enc"
 fernet = Fernet(os.environ["MAPPING_KEY"].encode())
 
 def load_mapping():
@@ -72,10 +72,10 @@ def pseudonymize(value, method, col_name):
 
 # ---
 
-with open("../config.yaml") as f:
+with open("./config.yaml") as f:
     config = yaml.safe_load(f)
 
-conn = sqlite3.connect("../db/pseudonymized.db")
+conn = sqlite3.connect("./db/pseudonymized.db")
 
 for table_name, table_cfg in config["tables"].items():
     df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
@@ -96,7 +96,7 @@ for table_name, table_cfg in config["tables"].items():
             df[col] = df[col].apply(lambda v: pseudonymize(v, method, col))
 
     df.to_sql(f"{table_name}_pseudo", conn, if_exists="replace", index=False)
-    df.to_csv(f"../data/out/{table_name}_pseudo.csv", index=False)
+    df.to_csv(f"./data/out/{table_name}_pseudo.csv", index=False)
 
 save_mapping(id_map)
 conn.close()

@@ -8,6 +8,7 @@ import { FlowChart } from '../components/chart/FlowChart';
 import { UncertaintyBanner } from '../components/chart/UncertaintyBanner';
 import { PatientInfo } from '../components/sidebar/PatientInfo';
 import { Biomarkers } from '../components/sidebar/Biomarkers';
+import { IpssCard } from '../components/sidebar/IpssCard';
 import { PredictionCard } from '../components/sidebar/PredictionCard';
 import { ReviewActions } from '../components/actions/ReviewActions';
 import { Navigation } from '../components/shared/Navigation';
@@ -87,6 +88,7 @@ export function ReviewPage() {
             <PatientInfo measurement={current} mode="review" />
             <Biomarkers measurement={current} />
             <PredictionCard label={predLabel} confidence={predConf} />
+            <IpssCard patientId={current.patient_id} />
           </div>
         </div>
       </div>

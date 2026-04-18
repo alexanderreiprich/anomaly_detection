@@ -2,10 +2,10 @@ import pandas as pd
 import sqlite3
 import yaml
 
-with open("../config.yaml") as f:
+with open("./config.yaml") as f:
     config = yaml.safe_load(f)
 
-conn = sqlite3.connect("../db/pseudonymized.db")
+conn = sqlite3.connect("./db/pseudonymized.db")
 
 for table_name, table_cfg in config["tables"].items():
     df = pd.read_csv(table_cfg["file"])

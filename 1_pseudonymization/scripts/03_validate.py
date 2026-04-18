@@ -1,7 +1,7 @@
 import pandas as pd
 import sqlite3
 
-conn = sqlite3.connect("../db/pseudonymized.db")
+conn = sqlite3.connect("./db/pseudonymized.db")
 tables = ["patients"]
 
 for table in tables:

@@ -1,6 +1,6 @@
 tables:
   patients:
-    file: ../data/raw/patient_202603211747.csv
+    file: ./data/raw/patient_202603211747.csv
     drop:
       - in_start_phase
       - start_phase_completed
@@ -27,7 +27,7 @@ tables:
       height_range:        height_range
 
   measurements:
-    file: ../data/raw/measurement_202603211747.csv
+    file: ./data/raw/measurement_202603211747.csv
     drop:
       - leukocytes
       - nitrite
@@ -61,7 +61,7 @@ tables:
       created_date: created_date
   
   urine_flow:
-    file: ../data/raw/urine_flow_202603211747.csv
+    file: ./data/raw/urine_flow_202603211747.csv
     rename:
       id: urine_flow_id
     columns:
@@ -69,7 +69,7 @@ tables:
       measurement_id: consistent_id
   
   biomarkers:
-    file: ../data/raw/measurement_202603211747.csv
+    file: ./data/raw/measurement_202603211747.csv
     drop:
       - urine_volume
       - flow_time
@@ -100,4 +100,60 @@ tables:
       bilirubin: biomarker
       ketone: biomarker
       urobilinogen: biomarker
-      
+
+  ipss_submissions:
+    file: ./data/raw/ipss_submissions_202603211747.csv
+    drop:
+      - notes
+      - created_at
+      - updated_at
+    rename:
+      id: submission_id
+    columns:
+      submission_id: consistent_id
+      patient_id: consistent_id
+      score: score
+      submitted_at: submitted_at
+
+  ipss_questions:
+    file: ./data/raw/ipss_questions_202603211747.csv
+    drop:
+      - created_at
+      - updated_at
+    rename:
+      id: question_id
+    columns:
+      question_id: consistent_id
+      question_number: question_number
+      question_text: question_text
+
+  ipss_answer_options:
+    file: ./data/raw/ipss_answer_options_202603211747.csv
+    drop:
+      - display_order
+      - created_at
+      - updated_at
+    rename:
+      id: answer_option_id
+    columns:
+      answer_option_id: consistent_id
+      question_id: consistent_id
+      option_value: option_value
+      option_text: option_text
+      points: points
+
+  ipss_responses:
+    file: ./data/raw/ipss_responses_202603211747.csv
+    drop:
+      - answered_at
+      - created_at
+      - updated_at
+    rename:
+      id: response_id
+    columns:
+      response_id: consistent_id
+      submission_id: consistent_id
+      question_id: consistent_id
+      answer_option_id: consistent_id
+      answer_value: answer_value
+

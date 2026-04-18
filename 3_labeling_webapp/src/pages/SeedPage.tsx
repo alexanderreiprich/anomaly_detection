@@ -7,6 +7,7 @@ import { Header } from '../components/layout/Header';
 import { FlowChart } from '../components/chart/FlowChart';
 import { PatientInfo } from '../components/sidebar/PatientInfo';
 import { Biomarkers } from '../components/sidebar/Biomarkers';
+import { IpssCard } from '../components/sidebar/IpssCard';
 import { LabelButtons } from '../components/actions/LabelButtons';
 import { Navigation } from '../components/shared/Navigation';
 import { Toast } from '../components/shared/Toast';
@@ -56,6 +57,7 @@ export function SeedPage() {
           <div className={styles.detailsRow}>
             <PatientInfo measurement={current} mode="seed" />
             <Biomarkers measurement={current} />
+            <IpssCard patientId={current.patient_id} />
           </div>
         </div>
       </div>
