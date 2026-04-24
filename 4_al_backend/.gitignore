@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.env
+models/*.joblib
+.ipynb_checkpoints/
