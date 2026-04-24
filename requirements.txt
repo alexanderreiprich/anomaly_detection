@@ -8,3 +8,4 @@ scikit-learn==1.8.0
 matplotlib==3.10.8
 seaborn==0.13.2
 ipywidgets==8.1.8
+xgboost-cpu==3.2.0
