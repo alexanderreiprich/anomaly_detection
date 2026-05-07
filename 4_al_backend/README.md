@@ -15,3 +15,19 @@ This allows local testing as well as communication between the 3_labeling_webapp
 3. Run `cd 4_al_backend && uvicorn service.api:app --reload`
 
 You can now access http://localhost:8000/docs#/ and check using the /health endpoint if everything works as intended.
+
+### Endpoints
+
+- `GET  /health` — readiness + whether a trained model exists on disk
+- `POST /retrain` — trains an XGBoost classifier on every labeled measurement
+- `GET  /query?n=…&strategy=…` — top-N most uncertain unlabeled measurements; persists `predicted_label` + `confidence` back to Supabase
+- `POST /predict` — predicts labels for arbitrary feature dicts
+- `GET  /measurements/{measurement_id}/curve` — raw uroflow timeseries `{time, flow}` for a single measurement, used by the labeling webapp to render the curve next to the engineered features
+
+### Features
+
+Model inputs (14 columns, all NaN-tolerant):
+
+- **Flow** (6): `urine_volume`, `max_flow`, `avg_flow`, `micturition_time`, `flow_time`, `rise_time`
+- **IPSS** (3): `ipss_score`, `ipss_delta_prev`, `ipss_days_since` — joined to the closest IPSS submission within ±`IPSS_WINDOW_DAYS`
+- **Curve shape** (5): `flow_skewness`, `flow_std`, `plateau_ratio`, `n_peaks`, `flow_smoothness` — derived per-measurement from `urine_flow`

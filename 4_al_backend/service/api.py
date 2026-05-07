@@ -19,6 +19,7 @@ from core.config import (
 from core.data import (
     get_labeled_measurements,
     get_unlabeled_measurements,
+    get_uroflow_curve,
     write_predictions,
 )
 from core.model import PatientModel
@@ -64,6 +65,12 @@ class PredictItem(BaseModel):
 class PredictResponse(BaseModel):
     classes: list[str]
     items: list[PredictItem]
+
+
+class CurveResponse(BaseModel):
+    measurement_id: str
+    time: list[float]
+    flow: list[float]
 
 
 def _load_model() -> PatientModel:
@@ -179,6 +186,20 @@ def predict(req: PredictRequest) -> PredictResponse:
         for p, c, row in zip(pred, conf, proba)
     ]
     return PredictResponse(classes=classes, items=items)
+
+
+@app.get(
+    "/measurements/{measurement_id}/curve",
+    response_model=CurveResponse,
+)
+def measurement_curve(measurement_id: str) -> CurveResponse:
+    payload = get_uroflow_curve(measurement_id)
+    if not payload["time"]:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No uroflow curve data for measurement {measurement_id}.",
+        )
+    return CurveResponse(**payload)
 
 
 def _nan_to_none(v):

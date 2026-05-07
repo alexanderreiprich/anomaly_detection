@@ -5,12 +5,14 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from scipy.signal import find_peaks
 
 from .config import (
     FEATURES,
     IPSS_WINDOW_DAYS,
     SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_URL,
+    TIMESERIES_FEATURES,
 )
 
 _PAGE_SIZE = 1000
@@ -112,12 +114,130 @@ def enrich_ipss_features(
     return df
 
 
+def fetch_urine_flow(
+    client, measurement_id: Optional[str] = None
+) -> pd.DataFrame:
+    """Fetch urine_flow rows. Optionally filter to a single measurement.
+
+    Returns columns: measurement_id, time, uro_flow.
+    """
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        q = client.table("urine_flow").select(
+            "measurement_id,time,uro_flow"
+        )
+        if measurement_id is not None:
+            q = q.eq("measurement_id", measurement_id)
+        res = q.range(offset, offset + _PAGE_SIZE - 1).execute()
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < _PAGE_SIZE:
+            break
+        offset += _PAGE_SIZE
+    return pd.DataFrame(rows)
+
+
+def extract_curve_features(t, q) -> dict[str, float]:
+    """Compute the 5 shape descriptors from a single uroflow curve.
+
+    Operates on the active flow portion only (q > 0) so the post-flow zero
+    plateau doesn't dominate skewness/std/peak detection. Returns NaN values
+    when fewer than 3 active points are available.
+    """
+    t = np.asarray(t, dtype=float)
+    q = np.asarray(q, dtype=float)
+    active = q > 0
+    if active.sum() < 3:
+        return dict(
+            flow_skewness=np.nan,
+            flow_std=np.nan,
+            plateau_ratio=np.nan,
+            n_peaks=np.nan,
+            flow_smoothness=np.nan,
+        )
+    qa = q[active]
+    qmax = qa.max()
+
+    flow_std = float(np.std(qa))
+
+    mu = qa.mean()
+    sd = qa.std()
+    flow_skewness = float(np.mean(((qa - mu) / sd) ** 3)) if sd > 1e-9 else 0.0
+
+    plateau_ratio = float(np.mean(qa >= 0.8 * qmax))
+
+    # distance=4 → ≥1 s separation at dt=0.25 s
+    peaks, _ = find_peaks(qa, height=0.3 * qmax, distance=4)
+    n_peaks = float(max(1, len(peaks)))
+
+    flow_smoothness = float(np.sum(np.abs(np.diff(qa))) / max(qmax, 1e-9))
+
+    return dict(
+        flow_skewness=flow_skewness,
+        flow_std=flow_std,
+        plateau_ratio=plateau_ratio,
+        n_peaks=n_peaks,
+        flow_smoothness=flow_smoothness,
+    )
+
+
+def enrich_timeseries_features(
+    measurements: pd.DataFrame,
+    timeseries: pd.DataFrame,
+) -> pd.DataFrame:
+    """Attach the 5 curve-shape features to each measurement.
+
+    Measurements without a matching timeseries entry keep NaN feature values —
+    XGBoost handles NaN natively, same as for IPSS features.
+    """
+    df = measurements.copy()
+    for f in TIMESERIES_FEATURES:
+        df[f] = np.nan
+    if timeseries.empty or df.empty:
+        return df
+
+    ts = timeseries.sort_values(["measurement_id", "time"])
+    feats_by_mid: dict[Any, dict[str, float]] = {}
+    for mid, grp in ts.groupby("measurement_id"):
+        feats_by_mid[mid] = extract_curve_features(
+            grp["time"].values, grp["uro_flow"].values
+        )
+
+    for idx, row in df.iterrows():
+        mid = row.get("measurement_id")
+        if mid in feats_by_mid:
+            for f, v in feats_by_mid[mid].items():
+                df.at[idx, f] = v
+    return df
+
+
+def get_uroflow_curve(measurement_id: str, client=None) -> dict:
+    """Return the raw uroflow curve for one measurement.
+
+    Used by the labeling webapp to display the curve during seed/review labeling
+    — easier to interpret clinically than the engineered shape features alone.
+    """
+    client = client or get_supabase_client()
+    df = fetch_urine_flow(client, measurement_id=measurement_id)
+    if df.empty:
+        return {"measurement_id": measurement_id, "time": [], "flow": []}
+    df = df.sort_values("time")
+    return {
+        "measurement_id": measurement_id,
+        "time": df["time"].astype(float).tolist(),
+        "flow": df["uro_flow"].astype(float).tolist(),
+    }
+
+
 def get_unlabeled_measurements(client=None) -> pd.DataFrame:
-    """Unlabeled measurements with IPSS features attached."""
+    """Unlabeled measurements with IPSS + curve-shape features attached."""
     client = client or get_supabase_client()
     meas = fetch_measurements(client)
     ipss = fetch_ipss_submissions(client)
+    ts = fetch_urine_flow(client)
     enriched = enrich_ipss_features(meas, ipss)
+    enriched = enrich_timeseries_features(enriched, ts)
     return enriched[enriched["label"].isna()].reset_index(drop=True)
 
 
@@ -126,7 +246,9 @@ def get_labeled_measurements(client=None) -> tuple[pd.DataFrame, pd.Series]:
     client = client or get_supabase_client()
     meas = fetch_measurements(client)
     ipss = fetch_ipss_submissions(client)
+    ts = fetch_urine_flow(client)
     enriched = enrich_ipss_features(meas, ipss)
+    enriched = enrich_timeseries_features(enriched, ts)
     labeled = enriched[enriched["label"].notna()].reset_index(drop=True)
     X = labeled[FEATURES].astype(float)
     y = labeled["label"].astype(str)
@@ -181,3 +303,21 @@ def load_measurements_from_sqlite(db_path: str) -> tuple[pd.DataFrame, pd.DataFr
     )
     conn.close()
     return meas, ipss
+
+
+def load_urine_flow_from_sqlite(db_path: str) -> pd.DataFrame:
+    """Offline helper — loads urine_flow rows from the mock SQLite DB.
+
+    Returns columns: measurement_id, time, uro_flow. Same shape as
+    fetch_urine_flow so enrich_timeseries_features works unchanged.
+    """
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    ts = pd.read_sql(
+        "SELECT measurement_id, time, uro_flow FROM urine_flow "
+        "ORDER BY measurement_id, time",
+        conn,
+    )
+    conn.close()
+    return ts

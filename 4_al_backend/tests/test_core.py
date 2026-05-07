@@ -2,8 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.config import FEATURES, IPSS_WINDOW_DAYS
-from core.data import enrich_ipss_features
+from core.config import FEATURES, IPSS_WINDOW_DAYS, TIMESERIES_FEATURES
+from core.data import (
+    enrich_ipss_features,
+    enrich_timeseries_features,
+    extract_curve_features,
+)
 from core.model import PatientModel
 from core.query_strategy import UncertaintySampler
 
@@ -165,3 +169,64 @@ class TestIpssEnrichment:
         )
         out = enrich_ipss_features(meas, ipss, window_days=30)
         assert np.isnan(out.loc[0, "ipss_score"])
+
+
+class TestCurveFeatures:
+    def _smooth_curve(self):
+        # Asymmetric single-peaked curve at dt=0.25 s, rises to 20 ml/s, decays
+        t = np.arange(0, 30, 0.25)
+        rise_n = 20
+        q = np.zeros_like(t)
+        q[:rise_n] = np.linspace(0, 20, rise_n, endpoint=False)
+        decay_len = 60
+        q[rise_n:rise_n + decay_len] = 20 * (1 - np.linspace(0, 1, decay_len)) ** 1.5
+        return t, q
+
+    def test_extract_returns_all_keys(self):
+        t, q = self._smooth_curve()
+        feats = extract_curve_features(t, q)
+        assert set(feats.keys()) == set(TIMESERIES_FEATURES)
+        for v in feats.values():
+            assert not np.isnan(v)
+
+    def test_extract_plateau_ratio_in_unit_interval(self):
+        t, q = self._smooth_curve()
+        feats = extract_curve_features(t, q)
+        assert 0.0 <= feats["plateau_ratio"] <= 1.0
+
+    def test_extract_short_input_returns_nan(self):
+        feats = extract_curve_features([0.0, 0.25], [0.0, 0.0])
+        assert all(np.isnan(v) for v in feats.values())
+
+    def test_extract_n_peaks_at_least_one(self):
+        t, q = self._smooth_curve()
+        feats = extract_curve_features(t, q)
+        assert feats["n_peaks"] >= 1
+
+    def test_enrich_attaches_columns(self):
+        t, q = self._smooth_curve()
+        meas = pd.DataFrame([{"measurement_id": "m1", "patient_id": "P1"}])
+        ts = pd.DataFrame(
+            {"measurement_id": ["m1"] * len(t), "time": t, "uro_flow": q}
+        )
+        out = enrich_timeseries_features(meas, ts)
+        for f in TIMESERIES_FEATURES:
+            assert f in out.columns
+            assert not np.isnan(out.loc[0, f])
+
+    def test_enrich_no_match_stays_nan(self):
+        meas = pd.DataFrame([{"measurement_id": "m1"}])
+        ts = pd.DataFrame(columns=["measurement_id", "time", "uro_flow"])
+        out = enrich_timeseries_features(meas, ts)
+        for f in TIMESERIES_FEATURES:
+            assert np.isnan(out.loc[0, f])
+
+    def test_enrich_unknown_measurement_stays_nan(self):
+        t, q = self._smooth_curve()
+        meas = pd.DataFrame([{"measurement_id": "m_other"}])
+        ts = pd.DataFrame(
+            {"measurement_id": ["m1"] * len(t), "time": t, "uro_flow": q}
+        )
+        out = enrich_timeseries_features(meas, ts)
+        for f in TIMESERIES_FEATURES:
+            assert np.isnan(out.loc[0, f])
