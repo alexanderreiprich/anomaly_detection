@@ -7,6 +7,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from core.config import (
@@ -15,6 +16,7 @@ from core.config import (
     FEATURES,
     MODEL_PATH,
     UNCERTAINTY_THRESHOLD,
+    WEBAPP_ORIGINS,
 )
 from core.data import (
     get_labeled_measurements,
@@ -26,6 +28,14 @@ from core.model import PatientModel
 from core.query_strategy import UncertaintySampler
 
 app = FastAPI(title="AL Backend", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=WEBAPP_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class RetrainResponse(BaseModel):

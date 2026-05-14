@@ -3,7 +3,9 @@ import { useMeasurements } from '../hooks/useMeasurements';
 import { useLabeling } from '../hooks/useLabeling';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useToast } from '../hooks/useToast';
+import { useBackend } from '../hooks/useBackend';
 import { Header } from '../components/layout/Header';
+import { BackendControls } from '../components/layout/BackendControls';
 import { FlowChart } from '../components/chart/FlowChart';
 import { UncertaintyBanner } from '../components/chart/UncertaintyBanner';
 import { PatientInfo } from '../components/sidebar/PatientInfo';
@@ -17,13 +19,18 @@ import type { Label } from '../types/measurement';
 import styles from './Page.module.css';
 
 export function ReviewPage() {
-  const { measurements, setMeasurements, loading, error } = useMeasurements('review');
+  const { measurements, setMeasurements, loading, error, refetch } = useMeasurements('review');
   const { message, visible, showToast } = useToast();
   const { currentIdx, current, applyLabel, goNext, goPrev, stats } = useLabeling({
     measurements,
     setMeasurements,
     mode: 'review',
     onToast: showToast,
+  });
+  const backend = useBackend({
+    onToast: showToast,
+    onAfterQuery: refetch,
+    onAfterRetrain: refetch,
   });
 
   const predLabel = current?.predicted_label ?? 'normal';
@@ -64,7 +71,20 @@ export function ReviewPage() {
 
   return (
     <>
-      <Header mode="review" stats={stats} />
+      <Header
+        mode="review"
+        stats={stats}
+        controls={
+          <BackendControls
+            health={backend.health}
+            healthError={backend.healthError}
+            retraining={backend.retraining}
+            querying={backend.querying}
+            onRetrain={backend.retrain}
+            onRefreshQueue={() => backend.refreshQueue()}
+          />
+        }
+      />
       <div className={styles.container}>
         <div className={styles.main}>
           <div className={styles.card}>

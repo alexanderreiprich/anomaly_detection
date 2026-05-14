@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { LabelingStats } from '../../types/measurement';
 import styles from './Header.module.css';
 import { useAuth } from '../../auth/AuthContext';
@@ -5,9 +6,10 @@ import { useAuth } from '../../auth/AuthContext';
 interface Props {
   mode: 'seed' | 'review';
   stats: LabelingStats;
+  controls?: ReactNode;
 }
 
-export function Header({ mode, stats }: Props) {
+export function Header({ mode, stats, controls }: Props) {
   const { username, signOut } = useAuth();
 
   return (
@@ -34,6 +36,7 @@ export function Header({ mode, stats }: Props) {
               &nbsp;&nbsp;Offen: <span>{stats.remaining}</span>
             </>
           )}
+          {controls}
           <span className={styles.user}>
             {username}
             <button className={styles.logoutBtn} onClick={signOut}>Logout</button>

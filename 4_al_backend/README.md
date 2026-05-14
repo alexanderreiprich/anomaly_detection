@@ -16,6 +16,10 @@ This allows local testing as well as communication between the 3_labeling_webapp
 
 You can now access http://localhost:8000/docs#/ and check using the /health endpoint if everything works as intended.
 
+### CORS
+
+The backend exposes CORS for the labeling webapp via `WEBAPP_ORIGINS` (comma-separated origins). Default is `http://localhost:5173` (Vite dev server). Set this to the deployed webapp URL in production.
+
 ### Endpoints
 
 - `GET  /health` — readiness + whether a trained model exists on disk

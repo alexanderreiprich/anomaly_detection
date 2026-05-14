@@ -1,0 +1,55 @@
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+}
+
+.health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: help;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dotReady {
+  background: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.18);
+}
+.dotWarn {
+  background: #ff9800;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.18);
+}
+.dotDown {
+  background: #f44336;
+  box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.18);
+}
+
+.btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+.btn:hover:not(:disabled) {
+  background: #e8eaf0;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

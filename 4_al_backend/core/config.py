@@ -26,6 +26,14 @@ LABEL_OPTIONS = ["normal", "warning", "critical", "invalid"]
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
+# Comma-separated list of allowed CORS origins for the labeling webapp.
+# Use "*" to allow any origin (dev only).
+WEBAPP_ORIGINS = [
+    o.strip()
+    for o in os.getenv("WEBAPP_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
+
 AL_STRATEGY = os.getenv("AL_STRATEGY", "entropy")
 AL_QUERY_BATCH_SIZE = int(os.getenv("AL_QUERY_BATCH_SIZE", "10"))
 UNCERTAINTY_THRESHOLD = float(os.getenv("UNCERTAINTY_THRESHOLD", "0.75"))
