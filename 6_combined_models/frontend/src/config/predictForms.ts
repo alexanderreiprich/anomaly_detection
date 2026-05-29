@@ -50,6 +50,13 @@ const uroflowForm: PredictForm = {
 };
 
 // ── Biomarker: friendly inputs; derived features are computed here ───────────
+// pH normal band — mirrors backend PH_LOW / PH_HIGH (core/config.py). The model
+// sees only the monotonic distance from this band, never the raw pH.
+const PH_LOW = 4.0;
+const PH_HIGH = 8.5;
+const phAbnormality = (ph: number | null): number | null =>
+  ph == null ? null : Math.max(0, PH_LOW - ph) + Math.max(0, ph - PH_HIGH);
+
 const MARKERS = ['leukocytes', 'nitrite', 'protein', 'blood', 'glucose'] as const;
 const MARKER_LABELS: Record<string, string> = {
   leukocytes: 'Leukozyten',
@@ -107,7 +114,7 @@ const biomarkerForm: PredictForm = {
     feats.n_no_data = nNoData;
     feats.max_pos_streak = anyPositive ? streak : 0;
     feats.n_prior_measurements = num(s.n_prior_measurements) ?? 0;
-    feats.ph = num(s.ph);
+    feats.ph_abn = phAbnormality(num(s.ph));
     feats.age_mid = num(s.age);
     feats.height_mid = num(s.height);
     feats.weight_mid = num(s.weight);

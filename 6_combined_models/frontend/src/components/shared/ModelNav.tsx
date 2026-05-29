@@ -4,7 +4,7 @@ import { MODELS, MODEL_TYPES } from '../../config/models';
 
 interface Props {
   modelType: ModelType;
-  mode: 'seed' | 'review' | 'predict';
+  mode: 'seed' | 'review' | 'predict' | 'analysis';
 }
 
 const linkBase: React.CSSProperties = {
@@ -48,6 +48,9 @@ export function PhaseTabs({ modelType, mode }: Props) {
       </Link>
       <Link to={`/${modelType}/predict`} style={tab(mode === 'predict')}>
         Test
+      </Link>
+      <Link to={`/${modelType}/analysis`} style={tab(mode === 'analysis')}>
+        Analyse
       </Link>
     </nav>
   );

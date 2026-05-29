@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { SeedPage } from './pages/SeedPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { PredictPage } from './pages/PredictPage';
+import { AnalysisPage } from './pages/AnalysisPage';
 
 export default function App() {
   return (
@@ -32,6 +33,14 @@ export default function App() {
           element={
             <AuthGuard>
               <PredictPage />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/:model/analysis"
+          element={
+            <AuthGuard>
+              <AnalysisPage />
             </AuthGuard>
           }
         />

@@ -11,11 +11,17 @@ from .config import (
     BIOMARKER_CATS,
     BIOMARKER_DEMO_FEATURES,
     BIOMARKER_FEATURES,
+    PH_HIGH,
+    PH_LOW,
     STREAK_FEATURES,
 )
 from .data import _fetch_all, get_supabase_client
 
 POS, NEG, NA = "POSITIVE", "NEGATIVE", "NO_DATA"
+
+# label_source for measurements deterministically marked invalid because they
+# carry no biomarker readings at all (all five model markers are NO_DATA).
+NO_DATA_LABEL_SOURCE = "rule_no_data"
 
 _BIOMARKER_COLS = (
     "measurement_id,patient_id,leukocytes,nitrite,protein,blood,glucose,"
@@ -31,6 +37,25 @@ def encode_biomarker(v) -> float:
     if v == NEG:
         return 0.0
     return np.nan
+
+
+def ph_abnormality(ph) -> float:
+    """Distance of a urine pH from the normal band [PH_LOW, PH_HIGH].
+
+    0 inside the band, growing linearly as pH deviates in either direction;
+    NaN if pH is missing. This makes the model's pH signal monotonic ('more
+    extreme = worse'), so a single split captures it instead of XGBoost
+    approximating the U-shaped risk on raw pH.
+    """
+    if ph is None:
+        return np.nan
+    try:
+        v = float(ph)
+    except (TypeError, ValueError):
+        return np.nan
+    if np.isnan(v):
+        return np.nan
+    return max(0.0, PH_LOW - v) + max(0.0, v - PH_HIGH)
 
 
 def range_midpoint(s) -> float:
@@ -109,6 +134,10 @@ def build_feature_frame(client=None) -> pd.DataFrame:
     df["n_positive"] = (raw == POS).sum(axis=1)
     df["n_no_data"] = (raw == NA).sum(axis=1)
 
+    # Monotonic pH abnormality for the model; raw `ph` stays for the clinical
+    # rule and the detail endpoint.
+    df["ph_abn"] = df["ph"].map(ph_abnormality)
+
     # Demographic midpoints.
     if not pat.empty:
         pat = pat.copy()
@@ -145,6 +174,26 @@ def get_unlabeled_biomarkers(client=None) -> pd.DataFrame:
     if df.empty:
         return df
     return df[df["label"].isna()].reset_index(drop=True)
+
+
+def mark_no_data_invalid(client=None) -> int:
+    """Mark unlabeled measurements with no biomarker readings as 'invalid'.
+
+    A measurement whose five model dip-stick markers are *all* NO_DATA carries
+    no signal the model could judge, so it is deterministically labeled
+    'invalid' (label_source='rule_no_data') instead of being queued for human
+    review. Returns the number of rows marked. Only touches unlabeled rows, so
+    it never overrides a human or model label and is safe to call repeatedly.
+    """
+    df = get_unlabeled_biomarkers(client)
+    if df is None or df.empty:
+        return 0
+    mask = df["n_no_data"] == len(BIOMARKER_CATS)
+    rows = [
+        {"measurement_id": mid, "label": "invalid", "confidence": 1.0}
+        for mid in df.loc[mask, "measurement_id"]
+    ]
+    return write_biomarker_labels(rows, client=client, label_source=NO_DATA_LABEL_SOURCE)
 
 
 def write_biomarker_predictions(predictions: list[dict], client=None) -> int:

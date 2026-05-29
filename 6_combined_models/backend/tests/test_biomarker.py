@@ -27,6 +27,15 @@ class TestEncoding:
         assert np.isnan(bd.range_midpoint(None))
         assert np.isnan(bd.range_midpoint(np.nan))
 
+    def test_ph_abnormality(self):
+        assert bd.ph_abnormality(6.5) == 0.0   # inside the normal band
+        assert bd.ph_abnormality(4.0) == 0.0   # lower boundary
+        assert bd.ph_abnormality(8.5) == 0.0   # upper boundary
+        assert bd.ph_abnormality(3.0) == 1.0   # acidic: 4.0 - 3.0
+        assert bd.ph_abnormality(9.5) == 1.0   # alkaline: 9.5 - 8.5
+        assert np.isnan(bd.ph_abnormality(None))
+        assert np.isnan(bd.ph_abnormality(np.nan))
+
 
 class TestStreaks:
     def test_streak_for_series(self):
@@ -125,6 +134,41 @@ class TestRegistry:
         assert callable(get_spec("biomarker").write_labels)
 
 
+class TestPermutationImportance:
+    def _data(self, n=60):
+        # leukocytes fully determines the label; every other feature is noise.
+        rng = np.random.default_rng(0)
+        rows = []
+        for _ in range(n):
+            row = {f: float(rng.normal(0, 0.1)) for f in BIOMARKER_FEATURES}
+            if rng.random() < 0.5:
+                row["leukocytes"], label = 1.0, "critical"
+            else:
+                row["leukocytes"], label = 0.0, "normal"
+            rows.append({**row, "label": label})
+        df = pd.DataFrame(rows)
+        return df[BIOMARKER_FEATURES].astype(float), df["label"]
+
+    def test_informative_feature_dominates(self):
+        from service.api import _permutation_importances
+
+        X, y = self._data()
+        perm, score, n, k = _permutation_importances(get_spec("biomarker"), X, y)
+        assert n > 0 and score is not None and k >= 2
+        # shuffling the determining feature collapses accuracy -> top importance
+        assert perm[0].feature == "leukocytes"
+        assert perm[0].importance > 0.1
+        # a pure-noise feature the model never splits on contributes ~nothing
+        noise = next(p for p in perm if p.feature == "glucose")
+        assert noise.importance < 0.05
+
+    def test_too_little_data(self):
+        from service.api import _permutation_importances
+
+        X, y = self._data(n=6)
+        assert _permutation_importances(get_spec("biomarker"), X, y) == ([], None, 0, 0)
+
+
 class TestModelWithBiomarkerFeatures:
     def _synthetic(self):
         rng = np.random.default_rng(0)
@@ -218,3 +262,21 @@ class TestBuildFeatureFrame:
         leuk = next(m for m in detail["markers"] if m["name"] == "leukocytes")
         assert leuk["value"] == "POSITIVE" and leuk["streak"] == 2
         assert detail["age_mid"] == 24.5
+
+    def test_mark_no_data_invalid(self, patched, monkeypatch):
+        captured = {}
+
+        def fake_write(rows, client=None, label_source="model"):
+            captured["rows"] = rows
+            captured["source"] = label_source
+            return len(rows)
+
+        monkeypatch.setattr(bd, "write_biomarker_labels", fake_write)
+        n = bd.mark_no_data_invalid()
+        # only m3 (all five markers NO_DATA, unlabeled) is marked; m2 has a
+        # POSITIVE reading and the labeled m1 is excluded from the pool.
+        assert n == 1
+        assert captured["rows"] == [
+            {"measurement_id": "m3", "label": "invalid", "confidence": 1.0}
+        ]
+        assert captured["source"] == bd.NO_DATA_LABEL_SOURCE

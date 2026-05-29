@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Optional
 
 from . import config
 from .biomarker_data import (
     get_labeled_biomarkers,
     get_unlabeled_biomarkers,
+    mark_no_data_invalid,
     reset_biomarker_labels,
     write_biomarker_labels,
     write_biomarker_predictions,
@@ -40,6 +41,9 @@ class ModelSpec:
     reset_labels: Callable[[], int]
     model_kwargs: dict = field(default_factory=dict)
     clinical_rules: bool = False
+    # Optional deterministic pre-training pass. Returns the number of rows it
+    # labeled. Used by the biomarker model to mark no-data measurements invalid.
+    auto_invalidate: Optional[Callable[[], int]] = None
 
 
 REGISTRY: dict[str, ModelSpec] = {
@@ -68,6 +72,7 @@ REGISTRY: dict[str, ModelSpec] = {
         reset_labels=reset_biomarker_labels,
         model_kwargs={"max_depth": 4},
         clinical_rules=True,
+        auto_invalidate=mark_no_data_invalid,
     ),
 }
 

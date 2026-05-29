@@ -19,6 +19,7 @@ export interface RetrainResponse {
   n_samples: number;
   classes: string[];
   model_path: string;
+  auto_invalidated: number;
 }
 
 export interface QueryItem {
@@ -85,6 +86,44 @@ export interface BiomarkerDetailResponse {
   age_mid: number | null;
   height_mid: number | null;
   weight_mid: number | null;
+}
+
+export interface FeatureImportance {
+  feature: string;
+  importance: number;
+}
+
+export interface PermutationImportance {
+  feature: string;
+  importance: number;
+  std: number;
+}
+
+export interface ClassCount {
+  label: string;
+  count: number;
+}
+
+export interface HyperParams {
+  n_estimators: number | null;
+  max_depth: number | null;
+  learning_rate: number | null;
+}
+
+export interface AnalysisResponse {
+  model_type: ModelType;
+  model_path: string;
+  classes: string[];
+  features: string[];
+  n_features: number;
+  hyperparameters: HyperParams;
+  n_labeled: number;
+  class_distribution: ClassCount[];
+  feature_importances: FeatureImportance[];
+  permutation_importances: PermutationImportance[];
+  permutation_holdout_score: number | null;
+  permutation_holdout_n: number;
+  permutation_n_splits: number;
 }
 
 export class BackendError extends Error {
@@ -157,6 +196,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ measurements }),
     }),
+
+  analysis: (modelType: ModelType) =>
+    request<AnalysisResponse>(`/analysis?model_type=${modelType}`),
 
   curve: (measurementId: string) =>
     request<CurveResponse>(

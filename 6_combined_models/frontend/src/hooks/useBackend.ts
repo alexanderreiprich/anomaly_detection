@@ -37,7 +37,11 @@ export function useBackend({ modelType, onToast, onAfterRetrain, onAfterQuery }:
     setRetraining(true);
     try {
       const res = await api.retrain(modelType);
-      onToast?.(`Modell trainiert auf ${res.n_samples} Messungen (${res.classes.join(', ')})`);
+      const invalidNote =
+        res.auto_invalidated > 0 ? `, ${res.auto_invalidated} ohne Daten → invalid` : '';
+      onToast?.(
+        `Modell trainiert auf ${res.n_samples} Messungen (${res.classes.join(', ')})${invalidNote}`,
+      );
       await refreshHealth();
       onAfterRetrain?.();
     } catch (err) {

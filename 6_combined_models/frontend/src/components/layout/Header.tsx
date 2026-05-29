@@ -6,7 +6,7 @@ import styles from './Header.module.css';
 import { useAuth } from '../../auth/AuthContext';
 
 interface Props {
-  mode: 'seed' | 'review' | 'predict';
+  mode: 'seed' | 'review' | 'predict' | 'analysis';
   modelType: ModelType;
   stats?: LabelingStats;
   title?: string;

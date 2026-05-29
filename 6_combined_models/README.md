@@ -59,7 +59,13 @@ and the trained model returns a predicted label with per-class probabilities.
 ## Workflow (per model)
 
 1. **Seed** — hand-label a handful of measurements to bootstrap the model.
-2. **Retrain** — train the model on all labeled rows (header button).
+2. **Retrain** — train the model on all labeled rows (header button). For the
+   **biomarker** model, retrain first auto-marks every still-unlabeled
+   measurement whose five model dip-stick markers are *all* `NO_DATA` as
+   `invalid` (`label_source='rule_no_data'`): with no readings there is nothing
+   for the model to judge, so these are resolved deterministically instead of
+   being queued for review, and then train as `invalid` examples. Only
+   unlabeled rows are touched, so it never overrides a human/model label.
 3. **Refresh Queue** — the backend predicts the most uncertain unlabeled rows
    (for biomarker, clinical safety rules pre-fill clear cases) and writes them
    back as `predicted_label` for review.

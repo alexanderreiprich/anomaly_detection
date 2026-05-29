@@ -35,7 +35,16 @@ BIOMARKER_CATS = ["leukocytes", "nitrite", "protein", "blood", "glucose"]
 # Per-biomarker consecutive-POSITIVE streak, computed per patient in
 # chronological order of created_date.
 STREAK_FEATURES = [f"{b}_streak" for b in BIOMARKER_CATS]
-BIOMARKER_NUMERIC_FEATURES = ["ph"]
+# Urine pH normal band. Outside [PH_LOW, PH_HIGH] is clinically abnormal. Both
+# the engineered `ph_abn` model feature and the extreme_ph clinical rule key off
+# these thresholds, so they stay aligned by construction.
+PH_LOW = 4.0
+PH_HIGH = 8.5
+
+# The model sees pH only as a monotonic abnormality distance (`ph_abn`), never
+# the raw value: raw pH risk is U-shaped (both extremes bad), which XGBoost can
+# only approximate with many noisy splits on a high-cardinality feature.
+BIOMARKER_NUMERIC_FEATURES = ["ph_abn"]
 BIOMARKER_DERIVED_FEATURES = [
     "n_positive",
     "n_no_data",
@@ -105,7 +114,7 @@ CLINICAL_RULES = [
     },
     {
         "name": "extreme_ph",
-        "check": lambda r: _notnan(r.get("ph")) and (r["ph"] < 4.0 or r["ph"] > 8.5),
+        "check": lambda r: _notnan(r.get("ph")) and (r["ph"] < PH_LOW or r["ph"] > PH_HIGH),
         "label": "warning",
         "confidence": 0.9,
     },

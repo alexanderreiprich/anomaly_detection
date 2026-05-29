@@ -8,6 +8,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sklearn.model_selection import StratifiedKFold
 
 from core.biomarker_data import get_biomarker_detail
 from core.config import (
@@ -53,6 +54,7 @@ class RetrainResponse(BaseModel):
     n_samples: int
     classes: list[str]
     model_path: str
+    auto_invalidated: int = 0
 
 
 class QueryItem(BaseModel):
@@ -105,6 +107,44 @@ class CurveResponse(BaseModel):
     measurement_id: str
     time: list[float]
     flow: list[float]
+
+
+class FeatureImportance(BaseModel):
+    feature: str
+    importance: float
+
+
+class PermutationImportance(BaseModel):
+    feature: str
+    importance: float  # mean drop in holdout accuracy when the feature is shuffled
+    std: float
+
+
+class ClassCount(BaseModel):
+    label: str
+    count: int
+
+
+class HyperParams(BaseModel):
+    n_estimators: Optional[int] = None
+    max_depth: Optional[int] = None
+    learning_rate: Optional[float] = None
+
+
+class AnalysisResponse(BaseModel):
+    model_type: str
+    model_path: str
+    classes: list[str]
+    features: list[str]
+    n_features: int
+    hyperparameters: HyperParams
+    n_labeled: int
+    class_distribution: list[ClassCount]
+    feature_importances: list[FeatureImportance]
+    permutation_importances: list[PermutationImportance] = []
+    permutation_holdout_score: Optional[float] = None
+    permutation_holdout_n: int = 0
+    permutation_n_splits: int = 0
 
 
 class BiomarkerMarker(BaseModel):
@@ -161,6 +201,10 @@ def health(model_type: str = "uroflow") -> dict:
 @app.post("/retrain", response_model=RetrainResponse)
 def retrain(model_type: str = "uroflow") -> RetrainResponse:
     spec = _resolve_spec(model_type)
+    # Deterministically label structurally-invalid rows (e.g. biomarker
+    # measurements with no readings) before training, so they become 'invalid'
+    # training examples instead of being queued for human review.
+    auto_invalidated = spec.auto_invalidate() if spec.auto_invalidate else 0
     X, y = spec.load_labeled()
     if len(y) == 0:
         raise HTTPException(status_code=400, detail="No labeled measurements available.")
@@ -177,6 +221,7 @@ def retrain(model_type: str = "uroflow") -> RetrainResponse:
         n_samples=len(y),
         classes=list(map(str, model.classes_)),
         model_path=str(spec.model_path),
+        auto_invalidated=auto_invalidated,
     )
 
 
@@ -371,6 +416,146 @@ def predict(req: PredictRequest, model_type: str = "uroflow") -> PredictResponse
         for p, c, row in zip(pred, conf, proba)
     ]
     return PredictResponse(model_type=spec.name, classes=classes, items=items)
+
+
+def _accuracy(model: PatientModel, X_arr: np.ndarray, y: np.ndarray) -> float:
+    return float((model.predict(X_arr) == y).mean())
+
+
+def _permutation_importances(
+    spec: ModelSpec,
+    X_full,
+    y_full,
+    n_splits: int = 5,
+    n_repeats: int = 5,
+    seed: int = 42,
+) -> tuple[list[PermutationImportance], Optional[float], int, int]:
+    """Cross-validated permutation importance: the mean drop in accuracy when
+    each feature's values are shuffled on the held-out fold.
+
+    Stratified K-fold so every row is scored on a model that did not see it (the
+    deployed artifact was fit on all rows and would leak). For each fold a fresh
+    model is trained on the other folds, then each feature is shuffled n_repeats
+    times on the held-out fold. The reported importance is the mean over folds
+    and `std` is the spread *across folds* — the split-to-split variation that a
+    single holdout cannot capture. Returns ([], None, 0, 0) when there is too
+    little data (needs >= 10 rows and >= 2 per class).
+    """
+    if X_full is None or y_full is None or len(y_full) < 10:
+        return [], None, 0, 0
+    y_str = np.asarray(y_full).astype(str)
+    _classes, class_counts = np.unique(y_str, return_counts=True)
+    min_class = int(class_counts.min())
+    if len(_classes) < 2 or min_class < 2:
+        return [], None, 0, 0
+
+    # StratifiedKFold needs n_splits <= the smallest class count.
+    n_splits = max(2, min(n_splits, min_class))
+    feats = list(spec.features)
+    X = X_full[feats] if hasattr(X_full, "columns") else pd.DataFrame(
+        np.asarray(X_full, dtype=float), columns=feats
+    )
+    X_arr = X.to_numpy(dtype=float)
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    rng = np.random.default_rng(seed)
+    per_fold: list[np.ndarray] = []
+    base_scores: list[float] = []
+    for tr_idx, te_idx in skf.split(X_arr, y_str):
+        if len(np.unique(y_str[tr_idx])) < 2:
+            continue
+        model = PatientModel(features=feats, **spec.model_kwargs).fit(
+            X.iloc[tr_idx], y_str[tr_idx]
+        )
+        X_te, y_te = X_arr[te_idx], y_str[te_idx]
+        base = _accuracy(model, X_te, y_te)
+        base_scores.append(base)
+        fold_imp = np.empty(len(feats))
+        for j in range(len(feats)):
+            drops = np.empty(n_repeats)
+            for r in range(n_repeats):
+                Xp = X_te.copy()
+                rng.shuffle(Xp[:, j])
+                drops[r] = base - _accuracy(model, Xp, y_te)
+            fold_imp[j] = drops.mean()
+        per_fold.append(fold_imp)
+
+    if not per_fold:
+        return [], None, 0, 0
+    arr = np.vstack(per_fold)  # (folds, features)
+    mean, std = arr.mean(axis=0), arr.std(axis=0)
+    out = [
+        PermutationImportance(feature=f, importance=float(mean[j]), std=float(std[j]))
+        for j, f in enumerate(feats)
+    ]
+    out.sort(key=lambda p: p.importance, reverse=True)
+    return out, float(np.mean(base_scores)), int(len(y_str)), len(per_fold)
+
+
+@app.get("/analysis", response_model=AnalysisResponse)
+def analysis(model_type: str = "uroflow") -> AnalysisResponse:
+    """Read-only summary of the trained model: metadata, XGBoost (gain) feature
+    importances, holdout permutation importances and the class distribution of
+    the currently labeled data.
+    """
+    spec = _resolve_spec(model_type)
+    model = _load_model(spec)
+
+    booster = model.model
+    feats = list(model.features)
+    importances = np.asarray(booster.feature_importances_, dtype=float)
+    fi = sorted(
+        (
+            FeatureImportance(feature=f, importance=float(v))
+            for f, v in zip(feats, importances)
+        ),
+        key=lambda x: x.importance,
+        reverse=True,
+    )
+
+    params = booster.get_params()
+    hyper = HyperParams(
+        n_estimators=params.get("n_estimators"),
+        max_depth=params.get("max_depth"),
+        learning_rate=params.get("learning_rate"),
+    )
+
+    classes = list(map(str, model.classes_))
+
+    # Labeled rows drive both the class distribution and the permutation
+    # importance below — the same set a retrain would use. The artifact does not
+    # persist its own training counts, so this is the best available proxy. A
+    # Supabase hiccup must not blank out the (offline) model metadata above,
+    # hence the degrade-to-empty.
+    try:
+        X_full, y_full = spec.load_labeled()
+    except Exception:
+        X_full, y_full = None, None
+
+    if y_full is not None and len(y_full):
+        counts = pd.Series(np.asarray(y_full).astype(str)).value_counts().to_dict()
+    else:
+        counts = {}
+    ordered = classes + [c for c in counts if c not in classes]
+    cd = [ClassCount(label=c, count=int(counts.get(c, 0))) for c in ordered]
+
+    perm, perm_score, perm_n, perm_k = _permutation_importances(spec, X_full, y_full)
+
+    return AnalysisResponse(
+        model_type=spec.name,
+        model_path=str(spec.model_path),
+        classes=classes,
+        features=feats,
+        n_features=len(feats),
+        hyperparameters=hyper,
+        n_labeled=int(sum(counts.values())),
+        class_distribution=cd,
+        feature_importances=fi,
+        permutation_importances=perm,
+        permutation_holdout_score=perm_score,
+        permutation_holdout_n=perm_n,
+        permutation_n_splits=perm_k,
+    )
 
 
 @app.get("/measurements/{measurement_id}/curve", response_model=CurveResponse)
